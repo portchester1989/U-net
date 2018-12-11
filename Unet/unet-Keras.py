@@ -13,12 +13,11 @@
 #====#====#====#==== 
 '''
 from keras.callbacks import ModelCheckpoint
-from keras.layers import merge, Conv2D, MaxPooling2D, UpSampling2D, Dropout, Softmax
+from keras.layers import concatenate, Conv2D, MaxPooling2D, UpSampling2D, Dropout, Softmax
 from keras.models import *
 from keras.optimizers import *
 from keras.utils import to_categorical
-
-from Unet.data_Keras import DataProcess
+from data_Keras import DataProcess
 
 
 class myUnet(object):
@@ -26,9 +25,14 @@ class myUnet(object):
         self.img_rows = img_rows
         self.img_cols = img_cols
 
-    def load_train_data(self):
+    def load_train_data(self,mode = 'my_data'):
         mydata = DataProcess(self.img_rows, self.img_cols)
-        imgs_train, imgs_mask_train = mydata.load_my_train_data()
+        if mode == 'my_data':
+            imgs_train, imgs_mask_train = mydata.load_my_train_data()
+        elif mode == 'pretrain':
+            imgs_train, imgs_mask_train = mydata.load_train_data()
+        else:
+            imgs_train, imgs_mask_train = mydata.load_small_train_data()
         imgs_mask_train = to_categorical(imgs_mask_train, num_classes=2)
         return imgs_train, imgs_mask_train
 
@@ -83,7 +87,7 @@ class myUnet(object):
         up6 = Conv2D(512, 2, activation='relu', padding='same', kernel_initializer='he_normal')(UpSampling2D(size=(2, 2))(drop5))
         print(up6.shape)
         print(drop4.shape)
-        merge6 = merge([drop4, up6], mode='concat', concat_axis=3)
+        merge6 = concatenate([drop4, up6], axis=3)
         print('merge: ')
         print(merge6.shape)
         conv6 = Conv2D(512, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge6)
@@ -91,19 +95,19 @@ class myUnet(object):
 
         up7 = Conv2D(256, 2, activation='relu', padding='same', kernel_initializer='he_normal')(
             UpSampling2D(size=(2, 2))(conv6))
-        merge7 = merge([conv3, up7], mode='concat', concat_axis=3)
+        merge7 = concatenate([conv3, up7], axis=3)
         conv7 = Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge7)
         conv7 = Conv2D(256, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv7)
 
         up8 = Conv2D(128, 2, activation='relu', padding='same', kernel_initializer='he_normal')(
             UpSampling2D(size=(2, 2))(conv7))
-        merge8 = merge([conv2, up8], mode='concat', concat_axis=3)
+        merge8 = concatenate([conv2, up8], axis=3)
         conv8 = Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge8)
         conv8 = Conv2D(128, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv8)
 
         up9 = Conv2D(64, 2, activation='relu', padding='same', kernel_initializer='he_normal')(
             UpSampling2D(size=(2, 2))(conv8))
-        merge9 = merge([conv1, up9], mode='concat', concat_axis=3)
+        merge9 = concatenate([conv1, up9], axis=3)
         conv9 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(merge9)
         conv9 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv9)
         conv9 = Conv2D(2, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv9)
@@ -117,9 +121,9 @@ class myUnet(object):
         print('model compile')
         return model
 
-    def train(self):
+    def train(self,mode='my_data'):
         print("loading data")
-        imgs_train, imgs_mask_train = self.load_train_data()
+        imgs_train, imgs_mask_train = self.load_train_data(mode)
         print("loading data done")
         model = self.get_unet()
         print("got unet")
@@ -144,5 +148,5 @@ class myUnet(object):
 if __name__ == '__main__':
     unet = myUnet()
     unet.get_unet()
-    # unet.train()
+    unet.train('hoge')
     # unet.test()
