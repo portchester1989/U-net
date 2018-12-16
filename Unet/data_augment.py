@@ -22,12 +22,12 @@ def elastic_bbox(X,bbox,displacement,order=3,mode='constant', cval=0.0, crop=Non
     cv2.rectangle(mask,(x,y),(x+w,y+h),255,-1)
     mask = elasticdeform.deform_grid(mask,displacement,axis = (0,1))
     #calculate mean intensity outside of mask
-    constant_intensity = np.mean(X[mask < 127,:],axis = (0,1))
+    constant_intensity = np.mean(X[:y,:x,:],axis = (0,1))
     ret,thresh = cv2.threshold(mask,127,255,0)
     contours = cv2.findContours(thresh, mode=1,method=2)
     cnt = contours[0]
     if bbox_mode == 'rotated':
-        rect = cv2.minAreaRect(cnt)
+        rect = cv2.minAreaRect(cnt) 
         box = cv2.boxPoints(rect)
         # four courners 
         #box = np.int0(box)
@@ -36,15 +36,17 @@ def elastic_bbox(X,bbox,displacement,order=3,mode='constant', cval=0.0, crop=Non
         x,y,w,h = cv2.boundingRect(cnt)
         #width and height
         return (x,y,w,h),constant_intensity
-def random_elastic_bbox(X,bboxes,sigma=25,points=3,mode='constant',cval=0.0,crop=None,prefilter=True,bbox_mode='rotated'):
+def random_elastic_bbox(X,bbox,sigma=25,points=3,mode='constant',cval=0.0,crop=None,prefilter=True,bbox_mode='rotated'):
     #random displacement
-    if not isinstance(bboxes,list):
+    if not isinstance(biboxes,list):
         bboxes = [bboxes]
     if not isinstance(points,(list,tuple)):
         points = [points] * 2
     displacement = np.random.randn(2,*points) * sigma
-    displaced_image = elasticdeform.deform_grid(X, displacement, order = 3, mode = 'constant', cval = 0.0, crop=None, prefilter = True,axis=(0,1))
-    displaced_bbox = [elastic_bbox(X,bbox,displacement,bbox_mode=bbox_mode) for bbox in bboxes]
+    #displaced_image = elasticdeform.deform_grid(X, displacement, order = 3, mode = 'constant', cval = 0.0, crop=None, prefilter = True,axis=(0,1))
+    displaced_bbox,constant_intensity = elastic_bbox(X,bbox,displacement,bbox_mode=bbox_mode) 
+    displaced_image = elasticdeform.deform_grid(X,displacement, order = 3,mode = 'constant',cval = 0.0,axis=(0,1))
+    displaced_image[np.sum(displaced_image,axis = (0,1)) == 0,:] = constant_intensity
     return (displaced_image,displaced_bbox)
 def boxes_within_image(X,bboxes_list,aug,elastic = True):
     if not isinstance(X,list):
