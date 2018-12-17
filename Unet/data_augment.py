@@ -48,7 +48,7 @@ def random_elastic_bbox(X,bbox,sigma=25,points=3,mode='constant',cval=0.0,crop=N
     displaced_image = elasticdeform.deform_grid(X,displacement, order = 3,mode = 'constant',cval = 0.0,axis=(0,1))
     displaced_image[np.sum(displaced_image,axis = (0,1)) == 0,:] = constant_intensity
     return (displaced_image,displaced_bbox)
-def boxes_within_image(X,bboxes_list,aug,elastic = True):
+def boxes_within_image(X,bboxes_list,elastic = True):
     if not isinstance(X,list):
         X = [X]
         bboxes_list = [bboxes_list]
@@ -57,6 +57,7 @@ def boxes_within_image(X,bboxes_list,aug,elastic = True):
     else:
         pairs = [(image,bboxes) for image,bboxes in zip(X,bboxes_list)]
     #convert bboxes to imgaug objects
+    aug = iaa.Oneof([iaa.Affine(rotate = (5,45),translate_percent = (-.2,.2)),iaa.
     bboxes = ia.BoundingBoxesOnImage([ia.BoundingBox(x1 = pair[1][0][0], y1 = pair[1][0][1], x2 = pair[1][0][2] + pair[1][0][0],y2 = pair[1][0][1] + pair[1][0][3]) for pair in pairs],shape=X[0].shape)
     image_aug = aug.augment_images([pair[0] for pair in pairs])
     bboxes_aug = aug.augment_bounding_boxes([bboxes])

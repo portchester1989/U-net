@@ -20,7 +20,19 @@ from keras.utils import to_categorical
 from data_Keras import DataProcess
 import keras.backend as K
 import tensorflow as tf
+from keras.objectives import mean_squared_error
 #from keras_yolo3.yolo3.model import *
+def smooth_l1_loss(y_true,y_pred):
+    target_true_loc = (y_true[:,:2] - y_pred[:,:2]) / (K.maximum(y_pred[:,2:4],K.epsilon())
+    target_true_wh = K.log(y_true[:,2:4]) - K.log(K.maximum(y_pred[:,2:4], K.epsilon())
+    #location_loss = K.mean(K.sum(K.square(target_true_loc),axis=0)
+    target = K.concatenate([target_true_loc,target_true_wh],axis = 1)
+    #difference = K.abs(target)
+    #square_func = K.square(difference) / 2
+    #linear_func = difference - .5
+    #difference = tf.where(difference < 1, square_func,linear_func)
+    loss = K.mean(K.sum(K.square(target),axis=0),axis=-1)
+    return loss
 
 class myUnet(object):
     def __init__(self, img_rows=512, img_cols=512):
@@ -42,13 +54,6 @@ class myUnet(object):
         mydata = DataProcess(self.img_rows, self.img_cols)
         imgs_test = mydata.load_test_data()
         return imgs_test
-    def smooth_l1_loss(self,y_true,y_pred):
-        difference = K.abs(y_true - y_pred)
-        squared_func = .5.square(difference)
-        linear_func = difference - .5
-        difference = tf.where(difference < 1, squared_func,linear_func)
-        loss = K.mean(K.sum(difference,axis = 0))
-        return loss
 
     def get_body(self,pretrained_weights=None):
         inputs = Input((256, 256, 3),name = 'input')
@@ -156,16 +161,16 @@ class myUnet(object):
         conv9 = BatchNormalization()(conv9)
         conv9 = Activation(activation='relu')(conv9)
         dense1 = Flatten()(conv9)
-        out_class = Dense(2,activation='sigmoid',name='dense_class')(dense1)
-        #out_box = Dense(4,name='dense_box')(dense1)
+        #out_class = Dense(2,activation='sigmoid',name='dense_class')(dense1)
+        out_box = Dense(4,name='dense_box')(dense1)
         #conv10 = Conv2D(1, 1, activation='sigmoid')(conv9)
         #conv10 = Softmax()(conv9)
-        print(out_class.shape)
-        #print(out_box.shape)
-        model = Model(input=inputs,output=out_class)
+        #print(out_class.shape)
+        print(out_box.shape)
+        model = Model(input=inputs,output=out_box)
         if pretrained_weights != None:
             model.load_weights(pretrained_weights)
-        model.compile(optimizer=Adam(lr=1e-5), loss=['binary_crossentropy'], metrics=['accuracy'])
+        model.compile(optimizer=Adam(lr=1e-5), loss=smooth_l1_loss, metrics=['accuracy'])
         #print('model compile')
         return model
     def train(self,mode='pretrain',img_paths = None,bounding_box_path = None,save_path=None,imgs_train_pre=None,imgs_mask_train_pre=None,pretrained_weights=None):
@@ -185,7 +190,7 @@ class myUnet(object):
         early_call_back = EarlyStopping(monitor='val_loss', min_delta=0, patience=0, verbose=0, mode='auto')
         tensor_board = TensorBoard(log_dir='../logs')
         print('Fitting model...')
-        model.fit(x=imgs_train, y=imgs_mask_train, validation_split=0.2, batch_size=64, epochs=10, verbose=1, shuffle=True, callbacks=[model_checkpoint,tensor_board])
+        model.fit(x=imgs_train, y=imgs_mask_train, validation_split=0.2, batch_size=32, epochs=10, verbose=1, shuffle=True, callbacks=[model_checkpoint,tensor_board])
 
     def test(self):
         print("loading data")
